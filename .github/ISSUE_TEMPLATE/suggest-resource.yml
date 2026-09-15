@@ -1,0 +1,38 @@
+name: Suggest a resource
+description: Propose a link to add to the list
+title: "[Resource]: "
+labels: ["resource"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Resource name
+      description: The project, tool, article, or talk you're suggesting
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: URL
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Process-Based Parallelism
+        - Simple Job & Queue Mechanisms
+        - Message Brokers at "Just Enough" Scale
+        - Actor Systems
+        - Further Reading
+        - Other / new category
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does this fit the process-first-concurrency thesis?
+      description: One or two sentences on why this belongs on the list.
+    validations:
+      required: true
