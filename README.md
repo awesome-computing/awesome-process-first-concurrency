@@ -25,6 +25,8 @@ Yet it's common to reach straight for an actor framework or a Kafka topic for pr
 
 This list is about the boring, load-bearing option: OS processes and simple queues first. Escalate to actors or a distributed bus only once you have a concrete reason — not because it's what the tutorial started with.
 
+**Licensing note:** every resource below is tagged with its license/status. Two entries are worth reading closely before you adopt them: Akka's relicensing to BUSL 1.1 in 2022 (source-available, not OSI-approved open source above a revenue threshold — see [Apache Pekko](https://pekko.apache.org/) for the FOSS fork), and Redis's relicensing history (RSAL/SSPL from 2024, back to AGPL-3.0 for Redis 8 — see [Valkey](https://valkey.io/) if you want a permissively-licensed drop-in). A "process-first, justify the complexity" reader should apply the same scrutiny to a dependency's license as to its operational cost.
+
 ## Decision Heuristics
 
 Rough thresholds for "processes are still fine" vs. "you've outgrown them":
@@ -38,36 +40,38 @@ Rough thresholds for "processes are still fine" vs. "you've outgrown them":
 
 ## Process-Based Parallelism
 
-- [GNU Parallel](https://www.gnu.org/software/parallel/) — build and run parallel pipelines from the shell; handles job control, retries, and remote execution over SSH with one tool.
-- [`xargs -P`](https://man7.org/linux/man-pages/man1/xargs.1.html) — the simplest possible parallel-process runner; already on every Unix box.
-- [Python `multiprocessing`](https://docs.python.org/3/library/multiprocessing.html) — process-based parallelism with a `Pool` API, sidesteps the GIL for CPU-bound work.
-- [Joblib](https://joblib.readthedocs.io/) — lightweight parallel-for helper built on `multiprocessing`/`loky`, popular in the Python data/scientific stack.
-- [`concurrent.futures.ProcessPoolExecutor`](https://docs.python.org/3/library/concurrent.futures.html) — standard-library process pool with a futures-style API.
-- [Ray](https://www.ray.io/) — the natural next step once you've genuinely outgrown a single machine's process pool and need distributed task/actor scheduling across a cluster.
+- [GNU Parallel](https://www.gnu.org/software/parallel/) `(GPL-3.0)` — build and run parallel pipelines from the shell; handles job control, retries, and remote execution over SSH with one tool.
+- [`xargs -P`](https://man7.org/linux/man-pages/man1/xargs.1.html) `(GPL, GNU findutils)` — the simplest possible parallel-process runner; already on every Unix box.
+- [Python `multiprocessing`](https://docs.python.org/3/library/multiprocessing.html) `(PSF License, stdlib)` — process-based parallelism with a `Pool` API, sidesteps the GIL for CPU-bound work.
+- [Joblib](https://joblib.readthedocs.io/) `(BSD-3-Clause)` — lightweight parallel-for helper built on `multiprocessing`/`loky`, popular in the Python data/scientific stack.
+- [`concurrent.futures.ProcessPoolExecutor`](https://docs.python.org/3/library/concurrent.futures.html) `(PSF License, stdlib)` — standard-library process pool with a futures-style API.
+- [Ray](https://www.ray.io/) `(Apache-2.0)` — the natural next step once you've genuinely outgrown a single machine's process pool and need distributed task/actor scheduling across a cluster.
 
 ## Simple Job & Queue Mechanisms
 
-- [`cron`](https://man7.org/linux/man-pages/man8/cron.8.html) + a lock file (`flock`) — the original scheduled-job system; still correct and still running most servers' background work.
-- [systemd timers](https://www.freedesktop.org/software/systemd/man/systemd.timer.html) — cron's more observable modern sibling, with logging and dependency ordering for free on systemd hosts.
-- [Redis Lists / Streams](https://redis.io/docs/latest/develop/data-types/streams/) used as a plain queue — `LPUSH`/`BRPOP` or `XADD`/`XREADGROUP` give you a durable, shared queue without standing up a broker cluster.
-- [SQLite as a queue](https://github.com/litements/litequeue) (e.g. `litequeue`) — a transactional claim-and-process queue backed by a single file; no server process to run at all.
-- [Procrastinate](https://procrastinate.readthedocs.io/) — a Python task queue built directly on PostgreSQL, no separate broker.
-- [pg-boss](https://github.com/timgit/pg-boss) — the same idea for Node.js: job queue on top of Postgres.
+- [`cron`](https://man7.org/linux/man-pages/man8/cron.8.html) + a lock file (`flock`) `(open source, part of most *nix base systems)` — the original scheduled-job system; still correct and still running most servers' background work.
+- [systemd timers](https://www.freedesktop.org/software/systemd/man/systemd.timer.html) `(LGPL-2.1)` — cron's more observable modern sibling, with logging and dependency ordering for free on systemd hosts.
+- [Redis Lists / Streams](https://redis.io/docs/latest/develop/data-types/streams/) used as a plain queue `(AGPL-3.0 as of Redis 8 — see licensing note below)` — `LPUSH`/`BRPOP` or `XADD`/`XREADGROUP` give you a durable, shared queue without standing up a broker cluster.
+- [Valkey](https://valkey.io/) `(BSD-3-Clause)` — the Linux Foundation-backed, unambiguously permissive-FOSS fork of Redis (forked at the pre-relicensing codebase); a drop-in replacement if you want the same list/stream commands without tracking Redis's license history.
+- [SQLite as a queue](https://github.com/litements/litequeue) (e.g. `litequeue`) `(MIT)` — a transactional claim-and-process queue backed by a single file; no server process to run at all.
+- [Procrastinate](https://procrastinate.readthedocs.io/) `(MIT)` — a Python task queue built directly on PostgreSQL, no separate broker.
+- [pg-boss](https://github.com/timgit/pg-boss) `(MIT)` — the same idea for Node.js: job queue on top of Postgres.
 
 ## Message Brokers at "Just Enough" Scale
 
-- [NATS](https://nats.io/) (core pub/sub) — a single small binary, sub-millisecond latency, no ZooKeeper/controller cluster to run — often the right stop between "a Redis list" and "a Kafka cluster."
-- [Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/) with consumer groups — durable, ordered, multi-consumer semantics without a separate broker technology if you already run Redis.
-- [Kafka](https://kafka.apache.org/) — reach for this once you need partitioned, replayable, high-throughput log semantics with multiple independent consumer groups; it is a real distributed system to operate, not a drop-in queue.
-- [Apache Pulsar](https://pulsar.apache.org/) — Kafka-adjacent, with built-in multi-tenancy and tiered storage; same "you need this much" bar applies.
+- [NATS](https://nats.io/) (core pub/sub) `(Apache-2.0, CNCF)` — a single small binary, sub-millisecond latency, no ZooKeeper/controller cluster to run — often the right stop between "a Redis list" and "a Kafka cluster."
+- [Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/) with consumer groups `(AGPL-3.0 as of Redis 8; use [Valkey](https://valkey.io/) (BSD-3-Clause) if you want the same feature under a permissive license)` — durable, ordered, multi-consumer semantics without a separate broker technology if you already run Redis.
+- [Kafka](https://kafka.apache.org/) `(Apache-2.0, ASF)` — reach for this once you need partitioned, replayable, high-throughput log semantics with multiple independent consumer groups; it is a real distributed system to operate, not a drop-in queue.
+- [Apache Pulsar](https://pulsar.apache.org/) `(Apache-2.0, ASF)` — Kafka-adjacent, with built-in multi-tenancy and tiered storage; same "you need this much" bar applies.
 
 ## Actor Systems — and When They're the Right Call
 
-- [Erlang/OTP](https://www.erlang.org/) — the origin of the actor/supervision-tree model, built for systems that must keep running while individual processes crash and restart.
-- [Elixir](https://elixir-lang.org/) — Erlang/OTP's ergonomics on the BEAM; a common modern entry point to the actor model.
-- [Akka](https://akka.io/) (JVM) — mature actor toolkit for Scala/Java when you need addressable, stateful, message-driven units at scale.
-- [Microsoft Orleans](https://learn.microsoft.com/en-us/dotnet/orleans/) — the "virtual actor" model: actors are always addressable and the runtime handles activation/placement for you.
-- [Proto.Actor](https://proto.actor/) — a lighter cross-language (Go/C#/Kotlin) actor library if you want the model without the BEAM or JVM.
+- [Erlang/OTP](https://www.erlang.org/) `(Apache-2.0)` — the origin of the actor/supervision-tree model, built for systems that must keep running while individual processes crash and restart.
+- [Elixir](https://elixir-lang.org/) `(Apache-2.0)` — Erlang/OTP's ergonomics on the BEAM; a common modern entry point to the actor model.
+- [Apache Pekko](https://pekko.apache.org/) `(Apache-2.0, ASF)` — a genuine open-source actor toolkit for Scala/Java on the JVM, forked from Akka's pre-relicensing (2.6.x) codebase and now an Apache Software Foundation project. **Prefer this over Akka** if you need an unambiguously FOSS-licensed JVM actor runtime.
+- [Akka](https://akka.io/) (JVM) `(BUSL 1.1 — source-available, NOT OSI-approved open source since v2.7/Sept 2022)` — mature and still widely deployed, but production use beyond the license's free tier requires a commercial agreement with Akka's maintainer (Akka Inc., formerly Lightbend). Listed for completeness; see Apache Pekko above for the FOSS equivalent.
+- [Microsoft Orleans](https://learn.microsoft.com/en-us/dotnet/orleans/) `(MIT)` — the "virtual actor" model: actors are always addressable and the runtime handles activation/placement for you.
+- [Proto.Actor](https://proto.actor/) `(Apache-2.0)` — a lighter cross-language (Go/C#/Kotlin) actor library if you want the model without the BEAM or JVM.
 
 ## Further Reading
 
